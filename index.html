@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>5G NR Tactical Scheduler [HUD.V4.1]</title>
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=4">
+</head>
+<body>
+    <div id="sidebar">
+        <h2>0. RF DOMAIN</h2>
+        <div class="input-group">
+            <label>Select Active Domain</label>
+            <select id="domain_selection" onchange="updateDomain()">
+                <option value="FR1">TS 38.521-1 (FR1)</option>
+                <option value="FR2">TS 38.521-2 (FR2)</option>
+                <option value="NTN">TS 38.521-5 (NTN)</option>
+            </select>
+        </div>
+        <hr>
+        <h2>1. CARRIER SPECS</h2>
+        <div class="input-group">
+            <label>Operating Band</label>
+            <input type="text" id="user_band" value="n78" onchange="updateBand()">
+        </div>
+        <div id="duplex_mode_container" class="input-group">
+            <label>Duplex Mode</label>
+            <select id="duplex_mode" onchange="updateApp()">
+                <option value="TDD">TDD</option>
+                <option value="FDD">FDD</option>
+                <option value="SDL">SDL</option>
+                <option value="SUL">SUL</option>
+            </select>
+        </div>
+        
+        <div id="freq_custom_container" style="display:none;">
+            <div class="input-group"><label>DL Min (MHz)</label><input type="number" id="dl_min_cust" value="3300" onchange="updateApp()"></div>
+            <div class="input-group"><label>DL Max (MHz)</label><input type="number" id="dl_max_cust" value="3400" onchange="updateApp()"></div>
+            <div class="input-group"><label>UL Min (MHz)</label><input type="number" id="ul_min_cust" value="3300" onchange="updateApp()"></div>
+            <div class="input-group"><label>UL Max (MHz)</label><input type="number" id="ul_max_cust" value="3400" onchange="updateApp()"></div>
+        </div>
+
+        <div id="tdd_config" class="input-group">
+            <label>TDD Slots (D, U, S)</label>
+            <input type="text" id="tdd_pattern" value="D,D,D,S,U" onchange="updateApp()">
+            <label style="margin-top:5px;">S-Slot Format (DL:F:UL)</label>
+            <input type="text" id="s_format" value="10:2:2" onchange="updateApp()">
+        </div>
+
+        <div id="fdd_config" class="input-group" style="display:none;">
+            <label>Sim Slots</label>
+            <input type="number" id="n_slots" value="4" min="1" max="20" onchange="updateApp()">
+        </div>
+
+        <div class="input-group">
+            <label>Bandwidth (MHz)</label>
+            <select id="selected_bw" onchange="updateBW()"></select>
+        </div>
+        
+        <div class="input-group">
+            <label>Test Channel</label>
+            <select id="test_ch" onchange="updateApp()">
+                <option value="Low">Low</option>
+                <option value="Mid" selected>Mid</option>
+                <option value="High">High</option>
+            </select>
+        </div>
+
+        <div id="arfcn_info" class="info-box"></div>
+
+        <hr>
+        <h2>3. PHYSICAL ALLOCATION</h2>
+        <div class="input-group">
+            <label>SCS (kHz)</label>
+            <select id="selected_scs" onchange="updateSCS()"></select>
+        </div>
+
+        <div class="input-group">
+            <label>PRBs Configured</label>
+            <input type="number" id="conf_rbs" onchange="updateApp()">
+        </div>
+
+        <div class="btn-group">
+            <button onclick="setAlloc('OF')">Outer Full</button>
+            <button onclick="setAlloc('IF')">Inner Full</button>
+            <button onclick="setAlloc('E1')">Edge 1RB</button>
+            <button onclick="setAlloc('I1')">Inner 1RB</button>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <div class="input-group" style="flex:1;"><label>BWP Start Index</label><input type="number" id="bwp_start" value="0" min="0" onchange="updateApp()"></div>
+            <div class="input-group" style="flex:1;"><label>Active BWP Size</label><input type="number" id="bwp_len" value="1" min="1" onchange="updateApp()"></div>
+        </div>
+
+        <div id="coreset_config" class="input-group">
+            <label>CORESET Symbols</label>
+            <input type="range" id="core_d" min="0" max="3" value="2" onchange="updateApp()">
+            <label>CORESET RBs</label>
+            <input type="number" id="core_l" min="0" step="6" value="24" onchange="updateApp()">
+            <label>CORESET Offset</label>
+            <input type="number" id="core_s" min="0" value="0" onchange="updateApp()">
+        </div>
+
+        <div class="input-group">
+            <label>Uplink Waveform</label>
+            <select id="ul_waveform" onchange="updateApp()">
+                <option value="CP-OFDM">CP-OFDM</option>
+                <option value="DFT-s-OFDM">DFT-s-OFDM</option>
+            </select>
+            <div id="dft_error" class="error-msg"></div>
+        </div>
+
+        <hr>
+        <h2>4. LOGICAL PORTS</h2>
+        <div class="input-group">
+            <label>Signal Overlay</label>
+            <select id="port_filter" onchange="updateApp()">
+                <option value="COMPOSITE">COMPOSITE (ALL)</option>
+                <option value="DL1000">[DL] Port 1000 (PDSCH)</option>
+                <option value="DL2000">[DL] Port 2000 (PDCCH)</option>
+                <option value="DL3000">[DL] Port 3000 (CSI-RS)</option>
+                <option value="DL4000">[DL] Port 4000 (SS/PBCH)</option>
+                <option value="UL0">[UL] Port 0 (DMRS for PUSCH)</option>
+                <option value="UL1000">[UL] Port 1000 (SRS, PUSCH)</option>
+                <option value="UL2000">[UL] Port 2000 (PUCCH)</option>
+                <option value="UL4000">[UL] Port 4000 (PRACH)</option>
+            </select>
+        </div>
+
+        <hr>
+        <h2>5. MAC LAYER MODULATION</h2>
+        <div style="display:flex; gap:10px;">
+            <div class="input-group" style="flex:1;">
+                <label>DL MIMO Layers</label>
+                <select id="mimo_layers_dl" onchange="updateApp()">
+                    <option value="1">1</option><option value="2">2</option><option value="4" selected>4</option><option value="8">8</option>
+                </select>
+            </div>
+            <div class="input-group" style="flex:1;">
+                <label>UL MIMO Layers</label>
+                <select id="mimo_layers_ul" onchange="updateApp()">
+                    <option value="1">1</option><option value="2" selected>2</option><option value="4">4</option>
+                </select>
+            </div>
+        </div>
+        <div style="display:flex; gap:10px;">
+            <div class="input-group" style="flex:1;">
+                <label>DL Mod</label>
+                <select id="mod_dl_str" onchange="updateApp()">
+                    <option value="QPSK">QPSK</option><option value="16QAM">16QAM</option><option value="64QAM">64QAM</option><option value="256QAM" selected>256QAM</option>
+                </select>
+            </div>
+            <div class="input-group" style="flex:1;">
+                <label>UL Mod</label>
+                <select id="mod_ul_str" onchange="updateApp()">
+                    <option value="QPSK">QPSK</option><option value="16QAM">16QAM</option><option value="64QAM" selected>64QAM</option><option value="256QAM">256QAM</option>
+                </select>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="main">
+        <div id="header">
+            <h1>📡 5G NR Tactical Scheduler [HUD.V4.1]</h1>
+            <p>Advanced L1/MAC Resource Allocation Console | <strong>Status: ONLINE (Symbol-Level & ARFCN Restored)</strong></p>
+        </div>
+
+        <h3>📡 LIVE TELEMETRY FEED</h3>
+        <div id="telemetry">
+            <div class="metric-card">
+                <label>DL Throughput</label>
+                <div class="metric-value" id="t_dl_mbps">0.0 Mbps</div>
+            </div>
+            <div class="metric-card">
+                <label>UL Throughput</label>
+                <div class="metric-value" id="t_ul_mbps">0.0 Mbps</div>
+            </div>
+            <div class="metric-card">
+                <label>TDD Duty (DL/UL)</label>
+                <div class="metric-value" id="t_duty">0.0% / 0.0%</div>
+            </div>
+            <div class="metric-card">
+                <label>Resource Util</label>
+                <div class="metric-value" id="t_res">0 / 0 PRB</div>
+            </div>
+        </div>
+
+        <div id="legend">
+            <div class="legend-item" onclick="showInfo('PDCCH')"><div class="legend-color" style="background:#00e5ff;"></div>PDCCH</div>
+            <div class="legend-item" onclick="showInfo('PDSCH')"><div class="legend-color" style="background:#112240;"></div>PDSCH</div>
+            <div class="legend-item" onclick="showInfo('SSB')"><div class="legend-color" style="background:#ff003c;"></div>SSB</div>
+            <div class="legend-item" onclick="showInfo('CSI-RS')"><div class="legend-color" style="background:#ffeb3b;"></div>CSI-RS</div>
+            <div class="legend-item" onclick="showInfo('PUCCH')"><div class="legend-color" style="background:#39ff14;"></div>PUCCH</div>
+            <div class="legend-item" onclick="showInfo('PUSCH')"><div class="legend-color" style="background:#0a3619;"></div>PUSCH</div>
+            <div class="legend-item" onclick="showInfo('SRS')"><div class="legend-color" style="background:#ff9800;"></div>SRS</div>
+            <div class="legend-item" onclick="showInfo('DMRS DL')"><div class="legend-color" style="background:#ffffff;"></div>DMRS DL</div>
+            <div class="legend-item" onclick="showInfo('DMRS UL')"><div class="legend-color" style="background:#adff2f;"></div>DMRS UL</div>
+            <div class="legend-item" onclick="showInfo('PTRS')"><div class="legend-color" style="background:#ff1493;"></div>PTRS</div>
+            <div class="legend-item" onclick="showInfo('PRACH')"><div class="legend-color" style="background:#ff4500;"></div>PRACH</div>
+            <div class="legend-item" onclick="showInfo('Active BWP')"><div class="legend-color" style="background:transparent; border:2px dashed #ff003c;"></div>Active BWP</div>
+        </div>
+
+        <!-- Info Modal -->
+        <div id="infoModal" class="modal" onclick="if(event.target===this) closeInfo()">
+            <div class="modal-content">
+                <span class="close-btn" onclick="closeInfo()">&times;</span>
+                <h3 id="modalTitle">Channel</h3>
+                <p id="modalDesc">Description goes here.</p>
+            </div>
+        </div>
+
+        <div id="visualizer">
+            <div id="chart1_container" class="chart-container" style="display:none;">
+                <div class="chart-title" id="chart1_title"></div>
+                <canvas id="grid_canvas1"></canvas>
+            </div>
+            <div id="chart2_container" class="chart-container" style="display:none;">
+                <div class="chart-title" id="chart2_title"></div>
+                <canvas id="grid_canvas2"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <script src="app.js?v=12"></script>
+</body>
+</html>
