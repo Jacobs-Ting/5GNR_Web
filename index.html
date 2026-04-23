@@ -111,6 +111,17 @@
             <div id="dft_error" class="error-msg"></div>
         </div>
 
+        <div id="pucch_config" class="input-group">
+            <label>PUCCH Format</label>
+            <select id="pucch_format" onchange="updateApp()">
+                <option value="0">Format 0 (Short, &le;2 bits)</option>
+                <option value="1" selected>Format 1 (Long, &le;2 bits)</option>
+                <option value="2">Format 2 (Short, &gt;2 bits)</option>
+                <option value="3">Format 3 (Long, &gt;2 bits)</option>
+                <option value="4">Format 4 (Long, OCC)</option>
+            </select>
+        </div>
+
         <hr>
         <h2>4. LOGICAL PORTS</h2>
         <div class="input-group">

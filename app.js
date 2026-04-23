@@ -177,7 +177,9 @@ function updateApp() {
     const core_s = parseInt(el('core_s').value);
     
     const ul_wave = el('ul_waveform').value;
-    const pucch_edge_rbs = Math.max(1, Math.floor(bwp_l * 0.05));
+    const pucch_format = parseInt(el('pucch_format') ? el('pucch_format').value : 1);
+    const is_short_pucch = (pucch_format === 0 || pucch_format === 2);
+    const pucch_edge_rbs = (pucch_format === 2 || pucch_format === 3) ? Math.max(2, Math.floor(bwp_l * 0.05)) : 1;
     const pusch_rb_len = Math.max(0, bwp_l - 2 * pucch_edge_rbs);
     
     let dft_err = "";
@@ -269,22 +271,43 @@ function updateApp() {
     
     function fill_ul(grid, s) {
         let pe = pucch_edge_rbs * 12;
+        let pucch_start_sym = is_short_pucch ? s + 11 : s;
+        let pucch_end_sym = s + 13;
+        
         if(pusch_rb_len>0) {
-            setRect(grid, bwp_s*12+pe, (bwp_s+bwp_l)*12-pe, s, s+13, PUSCH);
-            setPattern(grid, bwp_s*12+pe, (bwp_s+bwp_l)*12-pe, 1, s, s+1, 1, DMRS_UL);
-            // Thicken PTRS UL visually
-            for(let thick=0; thick<4; thick++) {
-                setPattern(grid, bwp_s*12+pe+thick, (bwp_s+bwp_l)*12-pe, 24, s+2, s+12, 4, PTRS_UL);
+            if (is_short_pucch) {
+                setRect(grid, bwp_s*12, (bwp_s+bwp_l)*12, s, pucch_start_sym, PUSCH);
+                setRect(grid, bwp_s*12+pe, (bwp_s+bwp_l)*12-pe, pucch_start_sym, pucch_end_sym, PUSCH);
+                setPattern(grid, bwp_s*12, (bwp_s+bwp_l)*12, 1, s, s+1, 1, DMRS_UL);
+                for(let thick=0; thick<4; thick++) {
+                    setPattern(grid, bwp_s*12+thick, (bwp_s+bwp_l)*12, 24, s+2, pucch_start_sym-1, 4, PTRS_UL);
+                }
+            } else {
+                setRect(grid, bwp_s*12+pe, (bwp_s+bwp_l)*12-pe, s, pucch_end_sym, PUSCH);
+                setPattern(grid, bwp_s*12+pe, (bwp_s+bwp_l)*12-pe, 1, s, s+1, 1, DMRS_UL);
+                for(let thick=0; thick<4; thick++) {
+                    setPattern(grid, bwp_s*12+pe+thick, (bwp_s+bwp_l)*12-pe, 24, s+2, pucch_end_sym-1, 4, PTRS_UL);
+                }
             }
             // TS 38.211: SRS typically placed at the end of the slot
-            setPattern(grid, bwp_s*12+pe, (bwp_s+bwp_l)*12-pe, 2, s+13, s+14, 1, SRS);
+            setPattern(grid, bwp_s*12, (bwp_s+bwp_l)*12, 2, s+13, s+14, 1, SRS);
         }
+        
         let center = bwp_s + Math.floor(bwp_l/2);
         let pr_start = Math.max(0, (center-3)*12);
         let pr_end = Math.min(pr_start+72, n_sc);
-        if(pr_end > pr_start) setRect(grid, pr_start, pr_end, s+2, s+12, PRACH);
-        setRect(grid, bwp_s*12, bwp_s*12+pe, s, s+13, PUCCH);
-        setRect(grid, (bwp_s+bwp_l)*12-pe, (bwp_s+bwp_l)*12, s, s+13, PUCCH);
+        if(pr_end > pr_start) setRect(grid, pr_start, pr_end, s+2, s+10, PRACH);
+        
+        if (is_short_pucch) {
+            setRect(grid, bwp_s*12, bwp_s*12+pe, pucch_start_sym, pucch_end_sym, PUCCH);
+            setRect(grid, (bwp_s+bwp_l)*12-pe, (bwp_s+bwp_l)*12, pucch_start_sym, pucch_end_sym, PUCCH);
+        } else {
+            let mid_sym = s + Math.floor((pucch_end_sym - s) / 2);
+            setRect(grid, bwp_s*12, bwp_s*12+pe, s, mid_sym, PUCCH);
+            setRect(grid, (bwp_s+bwp_l)*12-pe, (bwp_s+bwp_l)*12, mid_sym, pucch_end_sym, PUCCH);
+            setRect(grid, (bwp_s+bwp_l)*12-pe, (bwp_s+bwp_l)*12, s, mid_sym, PUCCH);
+            setRect(grid, bwp_s*12, bwp_s*12+pe, mid_sym, pucch_end_sym, PUCCH);
+        }
     }
     
     function fill_s_slot(grid, s) {
@@ -298,15 +321,32 @@ function updateApp() {
         if(s_ul_syms>0) {
             let ul_start = s + 14 - s_ul_syms;
             let pe = pucch_edge_rbs * 12;
+            let pucch_start_sym = is_short_pucch ? Math.max(ul_start, s + 14 - 3) : ul_start;
+            if (s_ul_syms <= 2) { pucch_start_sym = ul_start; }
+            let srs_start = s + 14 - 1;
+            let pucch_end_sym = s_ul_syms > 1 ? srs_start : ul_start + s_ul_syms;
+
             if(pusch_rb_len>0) {
-                // Determine if we have space for PUSCH vs SRS
-                let srs_start = ul_start + s_ul_syms - 1;
-                setRect(grid, bwp_s*12+pe, (bwp_s+bwp_l)*12-pe, ul_start, srs_start, PUSCH);
-                if(s_ul_syms>2) setPattern(grid, bwp_s*12+pe, (bwp_s+bwp_l)*12-pe, 1, ul_start, ul_start+1, 1, DMRS_UL);
-                setPattern(grid, bwp_s*12+pe, (bwp_s+bwp_l)*12-pe, 2, srs_start, srs_start+1, 1, SRS);
+                if(is_short_pucch) {
+                    setRect(grid, bwp_s*12, (bwp_s+bwp_l)*12, ul_start, pucch_start_sym, PUSCH);
+                    setRect(grid, bwp_s*12+pe, (bwp_s+bwp_l)*12-pe, pucch_start_sym, pucch_end_sym, PUSCH);
+                    if(s_ul_syms>2) setPattern(grid, bwp_s*12, (bwp_s+bwp_l)*12, 1, ul_start, ul_start+1, 1, DMRS_UL);
+                } else {
+                    setRect(grid, bwp_s*12+pe, (bwp_s+bwp_l)*12-pe, ul_start, pucch_end_sym, PUSCH);
+                    if(s_ul_syms>2) setPattern(grid, bwp_s*12+pe, (bwp_s+bwp_l)*12-pe, 1, ul_start, ul_start+1, 1, DMRS_UL);
+                }
+                if(s_ul_syms>1) setPattern(grid, bwp_s*12, (bwp_s+bwp_l)*12, 2, srs_start, srs_start+1, 1, SRS);
             }
-            setRect(grid, bwp_s*12, bwp_s*12+pe, ul_start, ul_start+s_ul_syms-1, PUCCH);
-            setRect(grid, (bwp_s+bwp_l)*12-pe, (bwp_s+bwp_l)*12, ul_start, ul_start+s_ul_syms-1, PUCCH);
+            if (is_short_pucch) {
+                setRect(grid, bwp_s*12, bwp_s*12+pe, pucch_start_sym, pucch_end_sym, PUCCH);
+                setRect(grid, (bwp_s+bwp_l)*12-pe, (bwp_s+bwp_l)*12, pucch_start_sym, pucch_end_sym, PUCCH);
+            } else {
+                let mid_sym = pucch_start_sym + Math.floor((pucch_end_sym - pucch_start_sym) / 2);
+                setRect(grid, bwp_s*12, bwp_s*12+pe, pucch_start_sym, mid_sym, PUCCH);
+                setRect(grid, (bwp_s+bwp_l)*12-pe, (bwp_s+bwp_l)*12, mid_sym, pucch_end_sym, PUCCH);
+                setRect(grid, (bwp_s+bwp_l)*12-pe, (bwp_s+bwp_l)*12, pucch_start_sym, mid_sym, PUCCH);
+                setRect(grid, bwp_s*12, bwp_s*12+pe, mid_sym, pucch_end_sym, PUCCH);
+            }
         }
     }
     
@@ -364,7 +404,7 @@ function updateApp() {
     }
     
     let t_dl = calcT(mimo_dl, mod_dl, dl_oh(), bwp_l, dl_syms);
-    let t_ul = calcT(mimo_ul, mod_ul, ul_oh(), bwp_l-2*Math.max(1, Math.floor(bwp_l*0.05)), ul_syms);
+    let t_ul = calcT(mimo_ul, mod_ul, ul_oh(), pusch_rb_len, ul_syms);
     let d_duty = (dl_syms/total_symbols_in_pattern)*100;
     let u_duty = (ul_syms/total_symbols_in_pattern)*100;
 
